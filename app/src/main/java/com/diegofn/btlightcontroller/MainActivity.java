@@ -75,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
         mOffBtn = findViewById(R.id.off);
         mDiscoverBtn = findViewById(R.id.discover);
         mListPairedDevicesBtn = findViewById(R.id.PairedBtn);
-        mLED1 = findViewById(R.id.checkboxLED1);
+        mLED1 = findViewById(R.id.checkBoxLeft);
 
         mBTArrayAdapter = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1);
         mBTAdapter = BluetoothAdapter.getDefaultAdapter(); // get a handle on the bluetooth radio
