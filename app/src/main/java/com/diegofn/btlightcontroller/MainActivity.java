@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ListView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,30 +39,58 @@ public class MainActivity extends AppCompatActivity {
 
     //
     // GUI Components
+    // TextView for logs
     //
     private TextView mBluetoothStatus;
     private TextView mReadBuffer;
+
+    //
+    // Command buttons
+    //
     private Button mScanBtn;
     private Button mOffBtn;
     private Button mListPairedDevicesBtn;
     private Button mDiscoverBtn;
+
+    //
+    // Bluetooth controller
+    //
     private BluetoothAdapter mBTAdapter;
     private Set<BluetoothDevice> mPairedDevices;
     private ArrayAdapter<String> mBTArrayAdapter;
     private ListView mDevicesListView;
-    private CheckBox mLED1;
 
+    //
+    // Light controls
+    //
+    private CheckBox mLeftCheck;
+    private CheckBox mRightCheck;
+    private CheckBox mLed1Check;
+    private CheckBox mLed2Check;
+
+    //
+    // Light timer SeekBar
+    //
+    private SeekBar mLeftSeekbar;
+    private SeekBar mRightSeekbar;
+    private SeekBar mLed1Seekbar;
+    private SeekBar mLed2Seekbar;
+
+    //
+    // Handler for bluetooth
+    //
     private final String TAG = MainActivity.class.getSimpleName();
     private Handler mHandler; // Our main handler that will receive callback notifications
     private ConnectedThread mConnectedThread; // bluetooth background worker thread to send and receive data
     private BluetoothSocket mBTSocket = null; // bi-directional client-to-client data path
-
     private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"); // "random" unique identifier
 
 
+    //
     // #defines for identifying shared types between calling functions
+    //
     private final static int REQUEST_ENABLE_BT = 1; // used to identify adding bluetooth names
-    private final static int MESSAGE_READ = 2; // used in bluetooth handler to identify message update
+    private final static int MESSAGE_READ = 2;      // used in bluetooth handler to identify message update
     private final static int CONNECTING_STATUS = 3; // used in bluetooth handler to identify message status
 
     @Override
@@ -69,22 +98,37 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //
+        // Match controllers
+        //
         mBluetoothStatus = findViewById(R.id.bluetoothStatus);
         mReadBuffer = findViewById(R.id.readBuffer);
+
         mScanBtn = findViewById(R.id.scan);
         mOffBtn = findViewById(R.id.off);
         mDiscoverBtn = findViewById(R.id.discover);
         mListPairedDevicesBtn = findViewById(R.id.PairedBtn);
-        mLED1 = findViewById(R.id.checkBoxLeft);
 
-        mBTArrayAdapter = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1);
+        mLeftCheck = findViewById(R.id.checkBoxLeft);
+        mRightCheck = findViewById(R.id.checkBoxRight);
+        mLed1Check = findViewById(R.id.checkBoxLed1);
+        mLed2Check = findViewById(R.id.checkBoxLed2);
+
+        mLeftSeekbar = findViewById(R.id.seekBarLeft);
+        mRightSeekbar = findViewById(R.id.seekBarRight);
+        mLed1Seekbar = findViewById(R.id.seekBarLed1);
+        mLed2Seekbar = findViewById(R.id.seekBarLed2);
+
+        mBTArrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
         mBTAdapter = BluetoothAdapter.getDefaultAdapter(); // get a handle on the bluetooth radio
 
         mDevicesListView = findViewById(R.id.devicesListView);
         mDevicesListView.setAdapter(mBTArrayAdapter); // assign model to view
         mDevicesListView.setOnItemClickListener(mDeviceClickListener);
 
+        //
         // Ask for location permission if not already allowed
+        //
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
 
@@ -118,15 +162,275 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(getApplicationContext(),"Bluetooth device not found!",Toast.LENGTH_SHORT).show();
         }
         else {
-
             //
-            // Enable send message only if it has a Bluetooth array
+            // Listener for mLeftCheck
             //
-            mLED1.setOnClickListener(new View.OnClickListener(){
+            mLeftCheck.setOnClickListener(new View.OnClickListener(){
                 @Override
                 public void onClick(View v){
-                    if(mConnectedThread != null) //First check to make sure thread created
-                        mConnectedThread.write("1");
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "0,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mLeftCheck.isChecked())
+                            lightCommand += "1," + mLeftSeekbar.getProgress() + ";";
+                        else
+                            lightCommand += "0," + mLeftSeekbar.getProgress() + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                    }
+                }
+            });
+
+
+            //
+            // Listener for mRightCheck
+            //
+            mRightCheck.setOnClickListener(new View.OnClickListener(){
+                @Override
+                public void onClick(View v){
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "1,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mRightCheck.isChecked())
+                            lightCommand += "1," + mRightSeekbar.getProgress() + ";";
+                        else
+                            lightCommand += "0," + mRightSeekbar.getProgress() + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                    }
+                }
+            });
+
+
+            //
+            // Listener for mLed1Check
+            //
+            mLed1Check.setOnClickListener(new View.OnClickListener(){
+                @Override
+                public void onClick(View v){
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "2,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mLed1Check.isChecked())
+                            lightCommand += "1," + mLed1Seekbar.getProgress() + ";";
+                        else
+                            lightCommand += "0," + mLed1Seekbar.getProgress() + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                    }
+                }
+            });
+
+
+            //
+            // Listener for mLed2Check
+            //
+            mLed2Check.setOnClickListener(new View.OnClickListener(){
+                @Override
+                public void onClick(View v){
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "3,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mLed2Check.isChecked())
+                            lightCommand += "1," + mLed2Seekbar.getProgress() + ";";
+                        else
+                            lightCommand += "0," + mLed2Seekbar.getProgress() + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                    }
+                }
+            });
+
+            //
+            // Listener for mLeftSeekbar
+            //
+            mLeftSeekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean b) {
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "0,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mLeftCheck.isChecked())
+                            lightCommand += "1," + progress + ";";
+                        else
+                            lightCommand += "0," + progress + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                        Toast.makeText(getApplicationContext(),"Timer set: " + progress + "ms", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+
+                }
+            });
+
+            //
+            // Listener for mRightSeekbar
+            //
+            mRightSeekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                 @Override
+                 public void onProgressChanged(SeekBar seekBar, int progress, boolean b) {
+                     //
+                     // First check if the Bluetooth is connected
+                     //
+                     if(mConnectedThread != null){
+                         String lightCommand = "1,";
+
+                         //
+                         // Turn on or off the led
+                         //
+                         if (mRightCheck.isChecked())
+                             lightCommand += "1," + progress + ";";
+                         else
+                             lightCommand += "0," + progress + ";";
+
+                         //
+                         // Send the light command
+                         //
+                         mConnectedThread.write(lightCommand);
+                         Toast.makeText(getApplicationContext(),"Timer set: " + progress + "ms", Toast.LENGTH_SHORT).show();
+                     }
+                 }
+
+                 @Override
+                 public void onStartTrackingTouch(SeekBar seekBar) {
+
+                 }
+
+                 @Override
+                 public void onStopTrackingTouch(SeekBar seekBar) {
+
+                 }
+             });
+
+            //
+            // Listener for mLed1Seekbar
+            //
+            mLed1Seekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean b) {
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "2,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mLed1Check.isChecked())
+                            lightCommand += "1," + progress + ";";
+                        else
+                            lightCommand += "0," + progress + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                        Toast.makeText(getApplicationContext(),"Timer set: " + progress + "ms", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+
+                }
+            });
+
+
+            //
+            // Listener for mLed2Seekbar
+            //
+            mLed2Seekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean b) {
+                    //
+                    // First check if the Bluetooth is connected
+                    //
+                    if(mConnectedThread != null){
+                        String lightCommand = "3,";
+
+                        //
+                        // Turn on or off the led
+                        //
+                        if (mLed2Check.isChecked())
+                            lightCommand += "1," + progress + ";";
+                        else
+                            lightCommand += "0," + progress + ";";
+
+                        //
+                        // Send the light command
+                        //
+                        mConnectedThread.write(lightCommand);
+                        Toast.makeText(getApplicationContext(),"Timer set: " + progress + "ms", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+
                 }
             });
 
@@ -167,7 +471,6 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
             mBluetoothStatus.setText("Bluetooth enabled");
             Toast.makeText(getApplicationContext(),"Bluetooth turned on",Toast.LENGTH_SHORT).show();
-
         }
         else{
             Toast.makeText(getApplicationContext(),"Bluetooth is already on", Toast.LENGTH_SHORT).show();
@@ -179,12 +482,18 @@ public class MainActivity extends AppCompatActivity {
     //
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent Data){
+        //
         // Check which request we're responding to
+        //
         if (requestCode == REQUEST_ENABLE_BT) {
+            //
             // Make sure the request was successful
+            //
             if (resultCode == RESULT_OK) {
+                //
                 // The user picked yes.
                 // The Intent's data indicate that the user pick yes.
+                //
                 mBluetoothStatus.setText("Enabled");
             }
             else
@@ -256,12 +565,17 @@ public class MainActivity extends AppCompatActivity {
             }
 
             mBluetoothStatus.setText("Connecting...");
+
+            //
             // Get the device MAC address, which is the last 17 chars in the View
+            //
             String info = ((TextView) v).getText().toString();
             final String address = info.substring(info.length() - 17);
             final String name = info.substring(0,info.length() - 17);
 
+            //
             // Spawn a new thread to avoid blocking the GUI one
+            //
             new Thread()
             {
                 public void run() {
@@ -275,7 +589,10 @@ public class MainActivity extends AppCompatActivity {
                         fail = true;
                         Toast.makeText(getBaseContext(), "Socket creation failed", Toast.LENGTH_SHORT).show();
                     }
+
+                    //
                     // Establish the Bluetooth socket connection.
+                    //
                     try {
                         mBTSocket.connect();
                     } catch (IOException e) {
@@ -325,8 +642,10 @@ public class MainActivity extends AppCompatActivity {
             InputStream tmpIn = null;
             OutputStream tmpOut = null;
 
+            //
             // Get the input and output streams, using temp objects because
             // member streams are final
+            //
             try {
                 tmpIn = socket.getInputStream();
                 tmpOut = socket.getOutputStream();
@@ -337,12 +656,24 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public void run() {
-            byte[] buffer = new byte[1024];  // buffer store for the stream
-            int bytes; // bytes returned from read()
+            //
+            // buffer store for the stream
+            //
+            byte[] buffer = new byte[1024];
+
+            //
+            // bytes returned from read()
+            //
+            int bytes;
+
+            //
             // Keep listening to the InputStream until an exception occurs
+            //
             while (true) {
                 try {
+                    //
                     // Read from the InputStream
+                    //
                     bytes = mmInStream.available();
                     if(bytes != 0) {
                         buffer = new byte[1024];
@@ -360,15 +691,22 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        /* Call this from the main activity to send data to the remote device */
+        //
+        // Call this from the main activity to send data to the remote device
+        //
         public void write(String input) {
-            byte[] bytes = input.getBytes();           //converts entered String into bytes
+            //
+            // Converts entered String into bytes
+            //
+            byte[] bytes = input.getBytes();
             try {
                 mmOutStream.write(bytes);
             } catch (IOException e) { }
         }
 
-        /* Call this from the main activity to shutdown the connection */
+        //
+        // Call this from the main activity to shutdown the connection
+        //
         public void cancel() {
             try {
                 mmSocket.close();
